@@ -1,2 +1,3 @@
-/c/birb
 *.o
+/c/birb
+/rust/target/*

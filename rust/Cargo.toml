@@ -1,0 +1,13 @@
+[package]
+name = "birb"
+version = "0.1.0"
+authors = ["Robert Gill <rtgill82@gmail.com>"]
+description = "Randomly flip characters in the word 'bird'"
+license = "BSD"
+edition = "2018"
+publish = false
+
+[dependencies]
+ctrlc = "3.2"
+lazy_static = "1.4"
+rand = "0.8"
