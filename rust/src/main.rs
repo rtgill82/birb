@@ -17,6 +17,9 @@ use std::sync::atomic::Ordering;
 use rand::Rng;
 use rand::rngs::ThreadRng;
 
+mod args;
+use crate::args::Args;
+
 // 1 second defined as microseconds.
 const SECOND: f32 = 1000000.0;
 
@@ -33,6 +36,9 @@ const Q: u8 = 'q' as u8;
 
 // Indices of characters we'll be flipping.
 const CH_IDX: [usize; 2] = [0, 3];
+
+// Function pointer for character mutation.
+type Func = fn(ch: u8) -> u8;
 
 static INIT: Once = Once::new();
 static mut RNG: MaybeUninit<ThreadRng> = MaybeUninit::uninit();
@@ -55,9 +61,14 @@ fn main() {
         });
     }
 
-    let delay = parse_delay();
-    let sec = time::Duration::from_micros(delay);
     let mut birb: [u8; 5] = [B, I, R, D, RET];
+    let args = parse_args();
+    let sec = time::Duration::from_micros(args.delay);
+
+    let mut mutate: Func = rotate_ch;
+    if args.random {
+        mutate = flip_ch;
+    }
 
     let run = (*RUN).clone();
     ctrlc::set_handler(move || {
@@ -76,7 +87,7 @@ fn main() {
     while (*RUN).load(Ordering::Relaxed) {
         thread::sleep(sec);
         let ch = CH_IDX[rand1()];
-        birb[ch] = flip_ch(birb[ch]);
+        birb[ch] = mutate(birb[ch]);
         print(&birb);
     }
 
@@ -98,33 +109,98 @@ pub fn rand1() -> usize {
     }
 }
 
-fn parse_delay() -> u64 {
-    if env::args().count() == 2 {
-        let arg = env::args().nth(1).unwrap();
-        let result = arg.parse::<f32>();
-        match result {
-            Ok(delay) => {
-                if delay <= 0.0 {
-                    eprintln!("DELAY cannot be zero or negative");
+// Display help message.
+fn show_help() {
+    println!("USAGE: birb [-hr?] [--help] [--random] [DELAY]\n");
+    println!("  -h, -?, --help\tDisplay this help message");
+    println!("  -r, --random\t\trandomly mutate characters\n");
+}
+
+// Parse command line arguments.
+fn parse_args() -> Args {
+    let mut count = 0;
+    let mut args: Args = Default::default();
+
+    for (i, arg) in env::args().enumerate() {
+        if i < 1 { continue };
+
+        if &arg[0..1] == "-" {
+            if &arg[1..2] == "-" {
+                // Handle long options.
+                if "random" == &arg[2..] {
+                    args.random = true;
+                } else if "help" == &arg[2..] {
+                    show_help();
+                    std::process::exit(libc::EXIT_SUCCESS);
+                } else {
+                    show_help();
                     std::process::exit(libc::EXIT_FAILURE);
                 }
+            } else {
+                // Handle short options.
+                match &arg[1..2] {
+                    "?" | "h" => {
+                        show_help();
+                        std::process::exit(libc::EXIT_SUCCESS);
+                    },
 
-                if delay > 60.0 {
-                    eprintln!("DELAY cannot be greater than 60 seconds");
-                    std::process::exit(libc::EXIT_FAILURE);
+                    "r" => args.random = true,
+
+                    _ => {
+                        show_help();
+                        std::process::exit(libc::EXIT_FAILURE);
+                    }
                 }
-
-                return (SECOND * delay).round() as u64;
             }
-
-            Err(err) => {
-                eprintln!("error: {:?}", err);
+        } else {
+            if count >= 1 {
+                show_help();
                 std::process::exit(libc::EXIT_FAILURE);
             }
+
+            count += 1;
+            args.delay = parse_delay(&arg);
         }
     }
 
-    SECOND as u64
+    args
+}
+
+// Parse delay.
+fn parse_delay(s: &str) -> u64 {
+    let result = s.parse::<f32>();
+    match result {
+        Ok(delay) => {
+            if delay <= 0.0 {
+                eprintln!("DELAY cannot be zero or negative");
+                std::process::exit(libc::EXIT_FAILURE);
+            }
+
+            if delay > 60.0 {
+                eprintln!("DELAY cannot be greater than 60 seconds");
+                std::process::exit(libc::EXIT_FAILURE);
+            }
+
+            return (SECOND * delay).round() as u64;
+        }
+
+        Err(err) => {
+            eprintln!("ParseFloatError: {}", err);
+            std::process::exit(libc::EXIT_FAILURE);
+        }
+    }
+}
+
+// Select next character in a sequence.
+fn rotate_ch(ch: u8) -> u8
+{
+    match ch {
+        B => Q,
+        D => B,
+        P => D,
+        Q => P,
+        _ => panic!()
+    }
 }
 
 // Randomly choose new character based on current character.
