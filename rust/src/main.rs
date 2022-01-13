@@ -5,7 +5,7 @@
 #[macro_use]
 extern crate lazy_static;
 
-use std::{io,str,thread,time};
+use std::{env,io,str,thread,time};
 use std::io::Write;
 use std::mem::MaybeUninit;
 use std::sync::Once;
@@ -16,6 +16,9 @@ use std::sync::atomic::Ordering;
 
 use rand::Rng;
 use rand::rngs::ThreadRng;
+
+// 1 second defined as microseconds.
+const SECOND: f32 = 1000000.0;
 
 // Bird is the word.
 const B: u8 = 'b' as u8;
@@ -52,7 +55,8 @@ fn main() {
         });
     }
 
-    let sec = time::Duration::new(1, 0);
+    let delay = parse_delay();
+    let sec = time::Duration::from_micros(delay);
     let mut birb: [u8; 5] = [B, I, R, D, RET];
 
     let run = (*RUN).clone();
@@ -92,6 +96,35 @@ pub fn rand1() -> usize {
         let rng = RNG.as_mut_ptr().as_mut().unwrap();
         rng.gen_range(0..2)
     }
+}
+
+fn parse_delay() -> u64 {
+    if env::args().count() == 2 {
+        let arg = env::args().nth(1).unwrap();
+        let result = arg.parse::<f32>();
+        match result {
+            Ok(delay) => {
+                if delay <= 0.0 {
+                    eprintln!("DELAY cannot be zero or negative");
+                    std::process::exit(libc::EXIT_FAILURE);
+                }
+
+                if delay > 60.0 {
+                    eprintln!("DELAY cannot be greater than 60 seconds");
+                    std::process::exit(libc::EXIT_FAILURE);
+                }
+
+                return (SECOND * delay).round() as u64;
+            }
+
+            Err(err) => {
+                eprintln!("error: {:?}", err);
+                std::process::exit(libc::EXIT_FAILURE);
+            }
+        }
+    }
+
+    SECOND as u64
 }
 
 // Randomly choose new character based on current character.

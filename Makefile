@@ -2,6 +2,9 @@
 # Copyright (C) 2022 Robert Gill
 #
 
+# Set delay for flipping a character (in seconds).
+DELAY =
+
 all:
 	$(MAKE) -C c
 	$(MAKE) -C rust

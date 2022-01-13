@@ -10,4 +10,5 @@ publish = false
 [dependencies]
 ctrlc = "3.2"
 lazy_static = "1.4"
+libc = "0.2"
 rand = "0.8"

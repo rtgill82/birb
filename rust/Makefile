@@ -2,6 +2,9 @@
 # Copyright (C) 2022 Robert Gill
 #
 
+# Set delay for flipping a character (in seconds).
+DELAY =
+
 RELEASE = target/release/birb
 DEBUG = target/debug/birb
 
@@ -9,8 +12,8 @@ birb: $(RELEASE)
 
 debug: $(DEBUG)
 
-run: clean
-	cargo run --release
+run: $(RELEASE)
+	cargo run --release -- $(DELAY)
 
 $(RELEASE): src/main.rs
 	cargo build --release
